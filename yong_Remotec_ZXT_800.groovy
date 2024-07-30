@@ -510,18 +510,6 @@ void ZAcLearning(learninglocation) {
     sendToDevice(cmds)
 } 
 
-/*
-class hubitat.zwave.commands.simpleavcontrolv1.SimpleAvControlSet {
-     List<SimpleAvControlSet> commands
-     Integer itemId
-     Short keyAttributes
-     Short sequenceNumber
-
-     List<Short> getPayload()
-     String format()
-
-*/
-
 private EncapCmd(cmd, ep) {
   String hexString = device.deviceNetworkId
   Short sep =(Short) Integer.parseInt(hexString, 16);
@@ -576,7 +564,7 @@ void ZTvOK(ok) {
 List refresh ()
 {
   infoLog( "REFRESH" )
-
+ 
   List commands = [
     *ALL_PARAMS.collect { zwave.configurationV1.configurationGet( parameterNumber : it ) } ,
     zwave.sensorMultilevelV6.sensorMultilevelGet(sensorType: 0x01) ,
@@ -596,7 +584,7 @@ List refresh ()
   ]
 
   debugLog( "REFRESH : commands : ${ commands.inspect() }" )
-  delayBetween( commands.collect { it.format() } , 1000 )
+  delayBetween( commands.collect { it.format() } , 1000 ) 
 }
 
 private Map getCONFIG_STATE()
@@ -611,24 +599,22 @@ private Map getCONFIG_STATE()
 
 List configure ()
 {
-  infoLog( "CONFIGURE00" )
-  if (!state.initialized)
-  {
-    setSupportedThermostatModes()
-    setSupportedThermostatFanModes()
-    state.initialized = true
-  }
-
+  infoLog( "configure" )  
   List commands    = []
   Map  configState = CONFIG_STATE
-
-  if ( !CONFIG_STATE.temperatureOffset ) commands.addAll(*[ configureTemperatureOffset() ])
-  if ( !CONFIG_STATE.remoteCode        ) commands.addAll(*[ configureRemoteCode()        ])
-  if ( !CONFIG_STATE.swingMode         ) commands.addAll(*[ configureSwingMode()         ])
+  if ( !CONFIG_STATE.temperatureOffset ) commands.addAll(*[ configureTemperatureOffset() ]) 
   if ( !CONFIG_STATE.internalInfrared  ) commands.addAll(*[ configureInternalInfrared()  ])
-  if ( !CONFIG_STATE.reportTempLevel   ) commands.addAll(*[ configureReportTempLevel()   ])
-  if ( !CONFIG_STATE.reportTime        ) commands.addAll(*[ configureReportTime()        ])
-
+  if ( !CONFIG_STATE.reportTempLevel  ) commands.addAll(*[ configureReportTempLevel()   ])
+  if ( !CONFIG_STATE.reportTime     ) commands.addAll(*[ configureReportTime()        ])
+  if (!state.initialized)
+  {
+    infoLog( "initialized" ) 
+    sensorPoll()
+    setSupportedThermostatModes()
+    setSupportedThermostatFanModes()    
+    state.initialized = true
+    commands.size = 0
+  }
   if ( commands.size < 1 )
   {
     debugLog( "CONFIGURE : no commands to run" )
@@ -838,37 +824,7 @@ private Map zwaveCommand ( hubitat.zwave.commands.configurationv1.ConfigurationR
   data
 }
 
-/*
-private void setSupportedThermostatModes ()
-{
-  List modes = []
-  modes << "on"
-  modes << "resume"
-  modes << "cool"
-  modes << "off"
-  if ( thermostatAutoSupported          ) modes << "auto"
-  if ( thermostatOffSupported           ) modes << "off"
-  if ( thermostatHeatSupported          ) modes << "heat"
-  if ( thermostatEmergencyHeatSupported ) modes << "emergency heat"
-  if ( thermostatFanOnlySupported       ) modes << "fan"
-  if ( thermostatDrySupported           ) modes << "dry"
-  if ( thermostatCoolSupported          ) modes << "cool"
-  sendEvent( name : "supportedThermostatModes" , value : modes )
-}
-
-private void setSupportedThermostatFanModes ()
-{
-  List modes = []
-  if ( fanOnSupported        ) modes << "on"
-  if ( fanAutoSupported      ) modes << "auto"
-  if ( fanCirculateSupported ) modes << "circulate"
-  if ( fanLowSupported       ) modes << "low"
-  if ( fanMediumSupported    ) modes << "medium"
-  if ( fanHighSupported      ) modes << "high"
-
-  sendEvent( name : "supportedThermostatFanModes" , value : modes )
-}
-*/
+ 
 private void setSupportedThermostatModes ()
 {
     List<hubitat.zwave.Command> cmds=[]
@@ -881,6 +837,7 @@ private void setSupportedThermostatFanModes ()
     cmds.add(zwave.thermostatFanModeV2.thermostatFanModeSupportedGet())
     sendToDevice(cmds)
 }
+
 
 private void setThermostatModesGet ()
 {
@@ -900,16 +857,7 @@ private Map zwaveCommand (hubitat.zwave.commands.thermostatmodev1.ThermostatMode
   if ( command.fanOnly)modes << "fanOnly"
   sendEvent( name : "supportedThermostatModes" , value : modes )
 }
-/*
-class hubitat.zwave.commands.thermostatfanmodev1.ThermostatFanModeSupportedReport {
-     Boolean auto
-     Boolean autoHigh
-     Boolean high
-     Boolean low
-
-     List<Short> getPayload()
-     String format()
- */   
+  
 private Map zwaveCommand (hubitat.zwave.commands.thermostatfanmodev2.ThermostatFanModeSupportedReport command )
 {  
   List modes = []
@@ -923,6 +871,7 @@ private Map zwaveCommand (hubitat.zwave.commands.thermostatfanmodev2.ThermostatF
 
 private List configureTemperatureOffset ()
 {
+   debugLog( "configureTemperatureOffset" )
    String  opt = temperatureOffset == null ? "0°C" : temperatureOffset
    Integer val = temperatureOffset == null ? 0 : (Integer) TEMP_VALUES[ opt ]
    debugLog( "setTemperatureOffset : ${ temperatureOffset } (${ val })" )
