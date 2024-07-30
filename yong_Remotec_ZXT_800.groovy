@@ -9,7 +9,10 @@
  * You may obtain a copy of the License at
  * 
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ * Note: 1.Default device has no AV ir data , it should use app or ir learning to get data
+ *     2.Learning function is a copy operation , which means it learn any IR what you want to learn and  command is a trigger function
+ *     3.AV endpoint is EP2 EP3 EP4, the first line is ep and the second is key function . 
+ * release version: 1.0
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,6 +41,8 @@ metadata
     capability "Actuator"
     capability "Temperature Measurement"
     command "AcCodeSelection", [[name:"aclocation",type:"STRING", description:"local IR code selection"]]
+    command "BleAdvertising", [[description:"Trigger ble advertising"]]
+      
     command "ZAcLearning", [[name:"learninglocation",type:"ENUM", description:"location for IR code learning", constraints:["OFF","ON" ,"17°C COOL","18°C COOL","19°C COOL","20°C COOL","21°C COOL","22°C COOL","23°C COOL","24°C COOL","25°C COOL","26°C COOL","27°C COOL","28°C COOL","29°C COOL","30°C COOL","17°C HEAT","18°C HEAT","19°C HEAT","20°C HEAT","21°C HEAT","22°C HEAT","23°C HEAT","24°C HEAT","25°C HEAT","26°C HEAT","27°C HEAT","28°C HEAT","29°C HEAT","30°C HEAT","DRY MODE"  ,"AUTO MODE" ,"FAN MODE" ]]] 
     
       command "ZAvControl", [[name:"avchannel",type:"ENUM", description:"select av channel",constraints:["2", "3","4"]],[name:"avbutton",type:"ENUM", description:"select av button", constraints:["Power","Input","Menu","Smart","Guide","Back","Up","Down","OK","Left","Right","VOL+","VOL-","Mute","Home","CH+","CH-","Skip-","Stop","Skip+","Play","Pause","Rewind","Record","FastForward","Red","Green","Yellow","Blue","0","1","2","3","4","5","6","7","8","9","Info","Text"]]]
@@ -143,6 +148,12 @@ metadata
       mfr            : "5254" ,
       prod           : "010A" ,
       deviceId          : "8493" ,
+      deviceJoinName : "Remotec ZXT-800"
+    )
+    fingerprint (
+      mfr            : "5254" ,
+      prod           : "0004" ,
+      deviceId          : "8492" ,
       deviceJoinName : "Remotec ZXT-800"
     )
   }
@@ -473,6 +484,14 @@ void sendToDevice(hubitat.zwave.Command cmd) {
     sendHubCommand(new hubitat.device.HubAction(cmd.format(), hubitat.device.Protocol.ZWAVE))
 }
 
+void BleAdvertising()
+{
+    debugLog( "BleAdvertising" )
+    List<hubitat.zwave.Command> cmds=[]
+    Integer codeBytes = 0xFF
+    cmds.add(zwave.configurationV1.configurationSet(parameterNumber: 0x3c, size:1, configurationValue:  [codeBytes]))
+    sendToDevice(cmds)
+}
 // select ac ir code 
 void AcCodeSelection(aclocation) {
      debugLog( "AcCodeSelection:  (${ aclocation.toInteger() })" )
