@@ -8,7 +8,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * 
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    https://github.com/yong-hy/ZXT-800-ac-av/blob/main/yong_Remotec_ZXT_800.groovy
  * Note: 1.Default device has no AV ir data , it should use app or ir learning to get data
  *     2.Learning function is a copy operation , which means it learn any IR what you want to learn and  command is a trigger function
  *     3.AV endpoint is EP2 EP3 EP4, the first line is ep and the second is key function . 
