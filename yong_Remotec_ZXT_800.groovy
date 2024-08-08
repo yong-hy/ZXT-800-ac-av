@@ -44,6 +44,7 @@ metadata
     capability "Temperature Measurement"
     command "AcCodeSelection", [[name:"aclocation",type:"STRING", description:"local IR code selection"]]
     command "BleAdvertising", [[description:"Trigger ble advertising"]]
+    command "Dry", [[description:"Dry mode"]]
       
     command "ZAcLearning", [[name:"learninglocation",type:"ENUM", description:"location for IR code learning", constraints:["OFF","ON" ,"17°C COOL","18°C COOL","19°C COOL","20°C COOL","21°C COOL","22°C COOL","23°C COOL","24°C COOL","25°C COOL","26°C COOL","27°C COOL","28°C COOL","29°C COOL","30°C COOL","17°C HEAT","18°C HEAT","19°C HEAT","20°C HEAT","21°C HEAT","22°C HEAT","23°C HEAT","24°C HEAT","25°C HEAT","26°C HEAT","27°C HEAT","28°C HEAT","29°C HEAT","30°C HEAT","DRY MODE"  ,"AUTO MODE" ,"FAN MODE" ,"SWING MODE ON","SWING MODE OFF"]]] 
     
@@ -92,7 +93,7 @@ metadata
         "auto"           ,
         "off"            ,
         "heat"           ,
-        "emergency heat" ,
+        "dry" ,
         "cool"
       ]
 
@@ -489,6 +490,14 @@ private void infoLog ( message )
 
 void sendToDevice(hubitat.zwave.Command cmd) {
     sendHubCommand(new hubitat.device.HubAction(cmd.format(), hubitat.device.Protocol.ZWAVE))
+}
+
+void Dry()
+{
+    List<hubitat.zwave.Command> cmds=[]
+    cmds.add( zwave.thermostatModeV2.thermostatModeSet(mode:0x08))
+    sendToDevice(cmds) 
+    sendEvent( name : "thermostatMode" , value : "dry")
 }
 
 void BleAdvertising()
