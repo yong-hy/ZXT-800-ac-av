@@ -8,11 +8,13 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * 
- *    https://github.com/yong-hy/ZXT-800-ac-av/blob/main/yong_Remotec_ZXT_800.groovy
+ *     http://www.apache.org/licenses/LICENSE-2.0
  * Note: 1.Default device has no AV ir data , it should use app or ir learning to get data
  *     2.Learning function is a copy operation , which means it learn any IR what you want to learn and  command is a trigger function
  *     3.AV endpoint is EP2 EP3 EP4, the first line is ep and the second is key function . 
- * release version: 1.0
+ *     4.Using AC learning ir code data you should set "Ac Code Selection" value to 0
+ *
+ * release version: 1.1   //20240808 add SWING Mode Off/On learning function
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -43,7 +45,7 @@ metadata
     command "AcCodeSelection", [[name:"aclocation",type:"STRING", description:"local IR code selection"]]
     command "BleAdvertising", [[description:"Trigger ble advertising"]]
       
-    command "ZAcLearning", [[name:"learninglocation",type:"ENUM", description:"location for IR code learning", constraints:["OFF","ON" ,"17°C COOL","18°C COOL","19°C COOL","20°C COOL","21°C COOL","22°C COOL","23°C COOL","24°C COOL","25°C COOL","26°C COOL","27°C COOL","28°C COOL","29°C COOL","30°C COOL","17°C HEAT","18°C HEAT","19°C HEAT","20°C HEAT","21°C HEAT","22°C HEAT","23°C HEAT","24°C HEAT","25°C HEAT","26°C HEAT","27°C HEAT","28°C HEAT","29°C HEAT","30°C HEAT","DRY MODE"  ,"AUTO MODE" ,"FAN MODE" ]]] 
+    command "ZAcLearning", [[name:"learninglocation",type:"ENUM", description:"location for IR code learning", constraints:["OFF","ON" ,"17°C COOL","18°C COOL","19°C COOL","20°C COOL","21°C COOL","22°C COOL","23°C COOL","24°C COOL","25°C COOL","26°C COOL","27°C COOL","28°C COOL","29°C COOL","30°C COOL","17°C HEAT","18°C HEAT","19°C HEAT","20°C HEAT","21°C HEAT","22°C HEAT","23°C HEAT","24°C HEAT","25°C HEAT","26°C HEAT","27°C HEAT","28°C HEAT","29°C HEAT","30°C HEAT","DRY MODE"  ,"AUTO MODE" ,"FAN MODE" ,"SWING MODE ON","SWING MODE OFF"]]] 
     
       command "ZAvControl", [[name:"avchannel",type:"ENUM", description:"select av channel",constraints:["2", "3","4"]],[name:"avbutton",type:"ENUM", description:"select av button", constraints:["Power","Input","Menu","Smart","Guide","Back","Up","Down","OK","Left","Right","VOL+","VOL-","Mute","Home","CH+","CH-","Skip-","Stop","Skip+","Play","Pause","Rewind","Record","FastForward","Red","Green","Yellow","Blue","0","1","2","3","4","5","6","7","8","9","Info","Text"]]]
     
@@ -249,6 +251,9 @@ private Map    getTEMP_VALUES()
  "-5°C"   : 0xF6  
  ]}
 
+private Integer getLEARN_ACIR_SEND_PARAM()  { 0xa5 }
+private Integer getLEARN_ACIR_SEND_SIZE()   {    1 }
+
 
 private Integer getSWING_MODE_PARAM()  { 0x21 }
 private Integer getSWING_MODE_SIZE()   {    1 }
@@ -381,6 +386,8 @@ private Map getTHERMOSTAT_FAN_MODE_MAP()
  "DRY MODE"         :30,    
  "AUTO MODE"         :31,    
  "FAN MODE"         :32,
+ "SWING MODE ON"      :33,
+ "SWING MODE OFF"     :34,
  ]
 
  @Field static Map SET_TV=[
@@ -491,14 +498,18 @@ void BleAdvertising()
     Integer codeBytes = 0xFF
     cmds.add(zwave.configurationV1.configurationSet(parameterNumber: 0x3c, size:1, configurationValue:  [codeBytes]))
     sendToDevice(cmds)
+    sendEvent( name : "BLE adv" , value : "OK")
 }
 // select ac ir code 
 void AcCodeSelection(aclocation) {
      debugLog( "AcCodeSelection:  (${ aclocation.toInteger() })" )
+    remoteCode = aclocation.toInteger()
+    state.lastRemoteCode = remoteCode
     List<hubitat.zwave.Command> cmds=[]
-      Short[] codeBytes = parseRemoteCode(aclocation.toInteger() ) 
-     cmds.add(zwave.configurationV1.configurationSet(parameterNumber: 0x1B, size:2, configurationValue:  (List) codeBytes))
+    Short[] codeBytes = parseRemoteCode(aclocation.toInteger() ) 
+    cmds.add(zwave.configurationV1.configurationSet(parameterNumber: 0x1B, size:2, configurationValue:  (List) codeBytes))    
     sendToDevice(cmds)
+    sendEvent( name : "remoteCode" , value : remoteCode )
 }
 
 // ac learning
@@ -507,7 +518,8 @@ void ZAcLearning(learninglocation) {
      List<hubitat.zwave.Command> cmds=[]
      Integer val = (Integer)SET_AC_LEARNING[learninglocation]
      cmds.add(zwave.configurationV1.configurationSet(parameterNumber: 25, size:1, configurationValue:(List)[val]))
-    sendToDevice(cmds)
+     sendToDevice(cmds)
+    sendEvent( name : "ac learning" , value : learninglocation)
 } 
 
 private EncapCmd(cmd, ep) {
@@ -527,6 +539,7 @@ private simpleAvControlSetCmd(keyHex, ep) {
 void ZAvControl(avchannel, avbutton) {   
   debugLog( "ZAvControl:  (${ TV_LEARNING[avlearningbutton] })" )
   simpleAvControlSetCmd(SET_TV[avbutton],  avchannel.toInteger())
+  sendEvent( name : "av" , value :  "CH:${avchannelavchannel} Button: ${avbutton}")
 }
 
 // av learning 
@@ -534,31 +547,37 @@ void ZAvLearning(avlearningchannel, avlearningbutton) {
     debugLog( "ZAvLearning:  (${ TV_LEARNING[avlearningbutton] })" )
     Integer val = (Integer)TV_LEARNING[avlearningbutton]
     EncapCmd(configureCommands(26, 1,  [ val ]),avlearningchannel.toInteger() ) 
+    sendEvent( name : "av learning" , value :  "CH:${avlearningchannel} Button: ${avlearningbutton}")
 }
 
 void ZChannelDown(channeldown) {   
   debugLog( "ZChannelDown)" )
   simpleAvControlSetCmd(SET_TV["CH-"],  channeldown.toInteger())
+  sendEvent( name : "av" , value :  "CH:${channeldown} Button: CH-")  
 }
 
 void ZChannelUp(channelup) {   
   debugLog( "ZChannelDown)" )
   simpleAvControlSetCmd(SET_TV["CH+"],  channelup.toInteger())
+  sendEvent( name : "av" , value :  "CH:${channelup} Button: CH+")
 }
 
 void ZVolUp(volup) {   
   debugLog( "ZVolUp)" )
   simpleAvControlSetCmd(SET_TV["VOL+"],  volup.toInteger())
+  sendEvent( name : "av" , value :  "CH:${volup} Button: VOL+")
 }
 
 void ZVolDown(voldown) {   
   debugLog( "ZVolDown)" )
   simpleAvControlSetCmd(SET_TV["VOL-"],  voldown.toInteger())
+  sendEvent( name : "av" , value :  "CH:${voldown} Button: VOL-")
 }  
 
 void ZTvOK(ok) {   
   debugLog( "ZTvOK)" )
   simpleAvControlSetCmd(SET_TV["OK"],  ok.toInteger())
+  sendEvent( name : "av" , value :  "CH:${ok} Button: OK")
 } 
 
 List refresh ()
@@ -911,10 +930,8 @@ private List configureSwingMode ()
   }
 
   debugLog( "setSwingMode : ${ cur } (${ val })" )
-
   state.lastSwingMode = cur
-  sendEvent( name : "swingMode" , value : cur )
-
+  sendEvent( name : "swingMode" , value : cur ) 
   configureCommands( SWING_MODE_PARAM , SWING_MODE_SIZE , [ val ] )
 }
 
@@ -925,7 +942,21 @@ private List setSwingMode ( String val )
 {
   sendEvent( name : "swingMode" , value : val )
   pauseExecution( 500 )
-  configure()
+  Integer valdata = SWING_MODE_VALUES[ val ]  
+  Integer parameter = SWING_MODE_PARAM
+  state.lastSwingMode = val  
+  infoLog( "setSwingMode : ${ state.lastRemoteCode } (${ remoteCode })(${ valdata })" )
+  if(state.lastRemoteCode == 0)
+  {
+     parameter = LEARN_ACIR_SEND_PARAM    
+     if(valdata == 1) 
+      valdata = 33   
+     else  
+      valdata = 34
+  }
+    List<hubitat.zwave.Command> cmds=[]
+    cmds.add(zwave.configurationV1.configurationSet(parameterNumber: parameter, size:1, configurationValue:[valdata]))
+    sendToDevice(cmds)
 }
 
 private List configureInternalInfrared ()
@@ -1066,13 +1097,13 @@ List setThermostatFanMode () { fanOn() }
 List setThermostatFanMode ( String mode )
 {
   mode = mode.trim()
-
+/*
   if ( !device.currentState( "supportedThermostatFanModes" )?.value?.contains( mode ) )
   {
     debugLog( "Unsupported thermostat fan mode : ${ mode }" )
     return []
   }
-
+*/
   if ( mode == "on" && state.lastThermostatFanMode != null )
     mode = state.lastThermostatFanMode
 
@@ -1103,11 +1134,14 @@ List setThermostatMode ( String mode )
 {
    debugLog( "setThermostatMode mode : ${ mode }" ) 
   if(mode == "on") mode = "resume"
+ 
+  /*
   if ( !device.currentState( "supportedThermostatModes" )?.value?.contains( mode ) )
   {
     debugLog( "Unsupported thermostat mode : ${ mode }" )
     return []
   }
+*/
 
   List commands = []
   BigDecimal setTemp = null
